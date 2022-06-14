@@ -101,3 +101,7 @@ module.exports.groupByPrice = async () => {
     },
   ]);
 };
+
+module.exports.sampleBooks = async (size) => {
+  return await model.aggregate([{ $sample: { size: size } }]);
+};
