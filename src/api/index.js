@@ -54,6 +54,79 @@ route.get("/books/generate", async (req, res, next) => {
   }
 });
 
+route.get("/books/search", async (req, res, next) => {
+  try {
+    const { name } = req.query;
+    const result = await bookRepo.findByName(name);
+    res.status(200).send(result).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+route.get("/books/filter", async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate) {
+      throw { statusCode:400, message:"require startDate"}
+    } else if (!endDate) {
+      throw { statusCode:400, message:"require endDate"}
+    } 
+    const result = await bookRepo.filterDate(startDate, endDate);
+    res.status(200).send(result).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+route.get("/books/sort", async (req, res, next) => {
+  try {
+    const query = req.query;
+    let result;
+    let order;
+
+    if (query.order === 'asc') {
+      order = 1;
+    } else if (query.order === 'desc'){
+      order = -1;
+    } else {
+      throw { statusCode:400, message:"invalid order"}
+    }
+
+    if (!query.type) {
+      throw { statusCode:400, message:"require type"}
+    }
+
+    switch (query.type) {
+      case "publicDate":
+        result = await bookRepo.sortByPublicDate(order);
+        break;
+      case "name":
+        result = await bookRepo.sortByName(order);
+        break;
+      case "author":
+        result = await bookRepo.sortByAuthor(order);
+        break;
+      case "price":
+        result = await bookRepo.sortByPrice(order);
+        break;
+    }
+
+    res.status(200).send(result).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+route.get("/books/group/price", async (req, res, next) => {
+  try {
+    const result = await bookRepo.groupByPrice();
+    res.status(200).send(result).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Error handler
 route.use((err, req, res, next) => {
   console.log({ err });
