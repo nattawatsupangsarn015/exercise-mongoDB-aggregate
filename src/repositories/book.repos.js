@@ -1,7 +1,14 @@
 const model = require("../models/book.model");
 
-module.exports.getAll = async () => {
-  return await model.find();
+const calSkip = (page, size) => {
+  return (page - 1) * size;
+};
+
+module.exports.getAll = async (page, size) => {
+  return await model.aggregate([
+    {"$skip": calSkip(page, size) },
+    {"$limit": size }
+  ]);
 };
 
 module.exports.create = async (data) => {
