@@ -6,8 +6,22 @@ const calSkip = (page, size) => {
 
 module.exports.getAll = async (page, size) => {
   return await model.aggregate([
-    {"$skip": calSkip(page, size) },
-    {"$limit": size }
+    {
+      $facet: {
+        pageInfo: [{ $count: "total" }],
+        data: [
+          {
+            $project: {
+              _id: 0,
+              created_at: 0,
+              updated_at: 0,
+            },
+          },
+          { $skip: calSkip(page, size) },
+          { $limit: size },
+        ],
+      },
+    },
   ]);
 };
 
@@ -103,5 +117,12 @@ module.exports.groupByPrice = async () => {
 };
 
 module.exports.sampleBooks = async (size) => {
-  return await model.aggregate([{ $sample: { size: size } }]);
+  return await model.aggregate([
+    {
+      $project: {
+        _id: 1,
+      },
+    },
+    { $sample: { size: size } },
+  ]);
 };
