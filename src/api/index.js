@@ -10,7 +10,7 @@ route.get("/", async (req, res) => {
 route.get("/books", async (req, res, next) => {
   try {
     const { page, size } = req.query;
-    const result = await bookRepo.getAll(page || 1,size || 25);
+    const result = await bookRepo.getAll(page || 1, size || 25);
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
@@ -58,8 +58,9 @@ route.get("/books/generate", async (req, res, next) => {
 
 route.get("/books/search", async (req, res, next) => {
   try {
-    const { name } = req.query;
-    const result = await bookRepo.findByName(name);
+    const { keyword } = req.query;
+    const { page, size } = req.query;
+    const result = await bookRepo.search(keyword, page || 1, size || 25);
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
@@ -131,14 +132,14 @@ route.get("/books/group/price", async (req, res, next) => {
 
 route.post("/shelf", async (req, res, next) => {
   try {
-    const { name, column, isActive, books, size } = req.body;
-    const sampleBooks = await bookRepo.sampleBooks(size);
+    const { name, column, isActive, books } = req.body;
     const shelf = {
       name: name,
       column: column,
       isActive: isActive,
-      books: sampleBooks,
+      books: books,
     };
+
     const result = await shelfRepo.create(shelf);
     res.status(201).send(result).end();
   } catch (err) {
@@ -146,57 +147,75 @@ route.post("/shelf", async (req, res, next) => {
   }
 });
 
-route.get("/shelves/search", async (req, res, next) => {
+route.post("/books/random", async (req, res, next) => {
   try {
-    const { name } = req.query;
-    const result = await shelfRepo.findByName(name);
+    const { size } = req.body;
+    const sampleBooks = await bookRepo.sampleBooks(size);
+    res.status(201).send(sampleBooks).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+route.put("/shelf", async (req, res, next) => {
+  try {
+    const { shelfId, bookId } = req.body;
+    const hasBook = await shelfRepo.checkBook(bookId);
+    if (!!hasBook.length) {
+      throw { statusCode: 400, message: "There's this book in the shelf." };
+    }
+    const result = await shelfRepo.addBook(shelfId, bookId);
+    res.status(201).send(result).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+route.get("/shelves", async (req, res, next) => {
+  try {
+    const result = await shelfRepo.getAll();
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
   }
 });
 
-route.get("/shelves/filter", async (req, res, next) => {
+route.get("/shelves/query", async (req, res, next) => {
   try {
-    const { isActive } = req.query;
-    const isTrue = (isActive === 'true');
-    const result = await shelfRepo.filterActive(isTrue);
-    res.status(200).send(result).end();
-  } catch (err) {
-    next(err);
-  }
-});
+    const { page, size } = req.query;
+    const { name, sort, isActive } = req.query;
+    const query = {
+      search: [{ name: {} }],
+      sort: { $sort: {} },
+      filter: [{ isActive: "" }]
+    };
 
-route.get("/shelves/sort", async (req, res, next) => {
-  try {
-    const query = req.query;
-    let result;
-    let order;
-
-    if (query.order === "asc") {
-      order = 1;
-    } else if (query.order === "desc") {
-      order = -1;
+    if (name !== undefined) {
+      query.search[0].name = { $regex: name, $options: "i" };
     } else {
-      throw { statusCode: 400, message: "invalid order" };
+      query.search[0].name = { $ne: "" };
     }
 
-    if (!query.type) {
-      throw { statusCode: 400, message: "require type" };
+    if (sort !== undefined) {
+      if (sort === "column") {
+        query.sort.$sort = { column: 1 };
+      } else if (sort === "name") {
+        query.sort.$sort = { name: 1 };
+      } else if (sort === 'book') {
+        query.sort.$sort = { numberOfBooks: 1 };
+      }
+    } else {
+      query.sort.$sort = { updated_at: 1 }
     }
 
-    switch (query.type) {
-      case "books":
-        result = await shelfRepo.sortByBooks(order);
-        break;
-      case "name":
-        result = await shelfRepo.sortByName(order);
-        break;
-      case "column":
-        result = await shelfRepo.sortByColumn(order);
-        break;
+    if (isActive !== undefined) {
+      const isTrue = isActive === "true"
+      query.filter[0].isActive = isTrue;
+    } else {
+      query.filter[0].isActive = { $ne: "" };
     }
 
+    const [result] = await shelfRepo.search(query, Number(page) || 1, Number(size) || 25);
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
