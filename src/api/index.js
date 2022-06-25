@@ -177,37 +177,39 @@ route.get("/shelves", async (req, res, next) => {
 
 route.get("/shelves/query", async (req, res, next) => {
   try {
-    const { page, size } = req.query;
-    const { name, sort, isActive } = req.query;
+    const { page, size, name, sort, isActive } = req.query;
     const query = {
-      search: [{ name: {} }],
+      match: { $and: [] },
       sort: { $sort: {} },
-      filter: [{ isActive: "" }],
     };
+    const orderMap = { asc: 1, des: -1 };
 
     if (name !== undefined) {
-      query.search[0].name = { $regex: name, $options: "i" };
-    } else {
-      query.search[0].name = { $ne: "" };
+      query.match.$and.push({ name: { $regex: name, $options: "i" } });
     }
 
     if (sort !== undefined) {
-      if (sort === "column") {
-        query.sort.$sort = { column: 1 };
-      } else if (sort === "name") {
-        query.sort.$sort = { name: 1 };
-      } else if (sort === "book") {
-        query.sort.$sort = { numberOfBooks: 1 };
+      const queryStrings = sort.split(",");
+      for (let q of queryStrings) {
+        const [field, order] = q.split(" ");
+        if (field === "column") {
+          query.sort.$sort.column = orderMap[order];
+        } else if (field === "name") {
+          query.sort.$sort.name = orderMap[order];
+        } else if (field === "book") {
+          query.sort.$sort.numberOfBooks = orderMap[order];
+        }
       }
     } else {
       query.sort.$sort = { updated_at: 1 };
     }
 
     if (isActive !== undefined) {
-      const isTrue = isActive === "true";
-      query.filter[0].isActive = isTrue;
-    } else {
-      query.filter[0].isActive = { $ne: "" };
+      query.match.$and.push({ isActive: isActive === "true" ? true : false });
+    }
+
+    if (query.match.$and.length === 0) {
+      query.match = {};
     }
 
     const [result] = await shelfRepo.search(
