@@ -56,11 +56,60 @@ route.get("/books/generate", async (req, res, next) => {
   }
 });
 
-route.get("/books/search", async (req, res, next) => {
+route.get("/books/query", async (req, res, next) => {
   try {
-    const { keyword } = req.query;
-    const { page, size } = req.query;
-    const result = await bookRepo.search(keyword, page || 1, size || 25);
+    const { page, size, name, sort, isActive, startDate, endDate } = req.query;
+    const query = {
+      match: { $and: [] },
+      sort: { $sort: {} },
+      shelf: {},
+    };
+    const orderMap = { asc: 1, des: -1 };
+
+    if (name !== undefined) {
+      query.match.$and.push({ name: { $regex: name, $options: "i" } });
+    }
+
+    if (sort !== undefined) {
+      const queryStrings = sort.split(",");
+      for (let q of queryStrings) {
+        const [field, order] = q.split(" ");
+        if (field === "author") {
+          query.sort.$sort.author = orderMap[order];
+        } else if (field === "name") {
+          query.sort.$sort.name = orderMap[order];
+        } else if (field === "price") {
+          query.sort.$sort.price = orderMap[order];
+        } else if (field === "publicDate") {
+          query.sort.$sort.publicDate = orderMap[order];
+        }
+      }
+    } else {
+      query.sort.$sort = { updated_at: 1 };
+    }
+
+    if (startDate !== undefined && endDate !== undefined) {
+      query.match.$and.push({
+        publicDate: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        },
+      });
+    }
+
+    if (isActive !== undefined) {
+      query.shelf = { "shelf.isActive": isActive === "true" ? true : false };
+    }
+
+    if (query.match.$and.length === 0) {
+      query.match = {};
+    }
+
+    const result = await bookRepo.search(
+      query,
+      Number(page) || 1,
+      Number(size) || 25
+    );
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
@@ -187,7 +236,7 @@ route.get("/shelves/query", async (req, res, next) => {
     const query = {
       search: [{ name: {} }],
       sort: { $sort: {} },
-      filter: [{ isActive: "" }]
+      filter: [{ isActive: "" }],
     };
 
     if (name !== undefined) {
@@ -201,21 +250,25 @@ route.get("/shelves/query", async (req, res, next) => {
         query.sort.$sort = { column: 1 };
       } else if (sort === "name") {
         query.sort.$sort = { name: 1 };
-      } else if (sort === 'book') {
+      } else if (sort === "book") {
         query.sort.$sort = { numberOfBooks: 1 };
       }
     } else {
-      query.sort.$sort = { updated_at: 1 }
+      query.sort.$sort = { updated_at: 1 };
     }
 
     if (isActive !== undefined) {
-      const isTrue = isActive === "true"
+      const isTrue = isActive === "true";
       query.filter[0].isActive = isTrue;
     } else {
       query.filter[0].isActive = { $ne: "" };
     }
 
-    const [result] = await shelfRepo.search(query, Number(page) || 1, Number(size) || 25);
+    const [result] = await shelfRepo.search(
+      query,
+      Number(page) || 1,
+      Number(size) || 25
+    );
     res.status(200).send(result).end();
   } catch (err) {
     next(err);
