@@ -92,38 +92,6 @@ module.exports.search = async (query, page, size) => {
   ]);
 };
 
-module.exports.sortByPublicDate = async (order) => {
-  return await model.aggregate([{ $sort: { publicDate: order } }]);
-};
-
-module.exports.sortByName = async (order) => {
-  return await model.aggregate([{ $sort: { name: order } }]);
-};
-
-module.exports.sortByPrice = async (order) => {
-  return await model.aggregate([{ $sort: { price: order } }]);
-};
-
-module.exports.sortByAuthor = async (order) => {
-  return await model.aggregate([{ $sort: { author: order } }]);
-};
-
-module.exports.filterDate = async (startDate, endDate) => {
-  return await model.aggregate([
-    {
-      $match: {
-        publicDate: {
-          $gt: new Date(startDate),
-          $lt: new Date(endDate),
-        },
-      },
-    },
-    {
-      $sort: { publicDate: 1 },
-    },
-  ]);
-};
-
 module.exports.groupByPrice = async () => {
   return await model.aggregate([
     {
