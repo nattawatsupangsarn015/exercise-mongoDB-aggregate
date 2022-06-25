@@ -52,10 +52,7 @@ module.exports.checkBook = async (bookId) => {
 module.exports.search = async (query, page, size) => {
   return await model.aggregate([
     {
-      $match: {
-        $or: query.search,
-        $and: query.filter,
-      },
+      $match: query.match
     },
     {
       $project: {
