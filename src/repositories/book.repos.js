@@ -39,6 +39,59 @@ module.exports.findByName = async (name) => {
   ]);
 };
 
+module.exports.search = async (query, page, size) => {
+  return await model.aggregate([
+    {
+      $match: query.match,
+    },
+    {
+      $project: {
+        _id: {
+          $toString: "$_id",
+        },
+        name: 1,
+        descriptions: 1,
+        author: 1,
+        price: 1,
+        publicDate: 1,
+      },
+    },
+    query.sort,
+    {
+      $lookup: {
+        from: "shelves",
+        localField: "_id",
+        foreignField: "books",
+        pipeline: [
+          {
+            $project: {
+              _id: 0,
+              created_at: 0,
+              updated_at: 0,
+              books: 0,
+            },
+          },
+        ],
+        as: "shelf",
+      },
+    },
+    { $unwind: { path: "$shelf", preserveNullAndEmptyArrays: true } },
+    { $match: query.shelf },
+    {
+      $facet: {
+        total: [{ $count: "total" }],
+        data: [{ $skip: calSkip(page, size) }, { $limit: size }],
+      },
+    },
+    { $unwind: { path: "$total", preserveNullAndEmptyArrays: true } },
+    {
+      $set: {
+        total: "$total.total",
+      },
+    },
+  ]);
+};
+
 module.exports.sortByPublicDate = async (order) => {
   return await model.aggregate([{ $sort: { publicDate: order } }]);
 };
